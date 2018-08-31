@@ -1,0 +1,5 @@
+^{:watch-dirs ["src" "test"]}
+{:main clj-parser.all-tests
+ :asset-path "/cljs-out/dev"
+ :devcards true
+ }
