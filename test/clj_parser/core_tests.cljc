@@ -32,7 +32,7 @@
     (is (= "abc" (parse (regexp #"abc") "abc")))
     (is (= "abc" (parse (regexp #"abc") "abc has more input"))))
   (testing "primitive: eof"
-    (is (= "" (parse (eof) "")))
+    (is (= :eof (parse (eof) "")))
     (is (= nil (parse (eof) "has more input"))))
   (testing "primitive: many"
     (is (= ["a" "a" "a"] (parse (many (string "a")) "aaa")))
