@@ -9,6 +9,8 @@
    [clojure.java.io :as io]
    [clojure.string :as string]
    [clojure.repl :refer :all]
+   [clojure.test :refer :all]
    [clojure.tools.namespace.repl :refer [refresh]]
    [clj-parser.core :as p]
+   [clj-parser.input :as i]
    ))

@@ -19,8 +19,8 @@
   :jar-exclusions [#".*\.html"]
 
   :profiles {:dev
-             {;; :main clj-parser.dev
-              ;; :source-paths ["dev"]
+             {:main clj-parser.dev
+              :source-paths ["dev"]
 
               :dependencies [[org.clojure/clojurescript "1.10.339"]
                              [com.bhauman/figwheel-main "0.1.8"]
