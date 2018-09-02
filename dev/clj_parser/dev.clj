@@ -13,4 +13,14 @@
    [clojure.tools.namespace.repl :refer [refresh]]
    [clj-parser.core :as p]
    [clj-parser.input :as i]
+   [clj-parser.json :as json]
    ))
+
+(defn T []
+  (refresh)
+  (run-tests
+   'clj-parser.core-tests
+   'clj-parser.input-tests
+   'clj-parser.json-tests
+   ))
+

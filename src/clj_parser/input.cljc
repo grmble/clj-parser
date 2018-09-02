@@ -38,3 +38,11 @@
   RegexInput
   (re-prefix-at? [_ pos prefix]
     (compat/str-regex-at? input pos prefix)))
+
+
+(defn make-input
+  "Make the input (string) into a parser input"
+  [input]
+  (cond
+    (string? input) (->StringInput input)
+    :else input))

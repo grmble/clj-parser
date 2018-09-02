@@ -1,4 +1,9 @@
-(ns clj-parser.compat)
+(ns clj-parser.compat
+  (:require
+   [clojure.edn :as edn]
+   )
+  (:refer-clojure :exclude [read-string])
+  )
 
 (set! *warn-on-reflection* true)
 
@@ -8,3 +13,5 @@
     (when (.lookingAt matcher)
       (for [i (range (inc (.groupCount matcher)))]
         (.group matcher (int i))))))
+
+(def read-string edn/read-string)

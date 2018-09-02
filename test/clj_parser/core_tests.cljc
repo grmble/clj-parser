@@ -3,14 +3,12 @@
    #?(:clj [clojure.test :refer :all]
       :cljs [cljs.test :refer-macros [testing is]])
    #?(:cljs [devcards.core :refer-macros [deftest]])
-   #?(:cljs [cljs.reader :refer [read-string]]
-      :clj [clojure.edn :refer [read-string]])
    [cats.core :as m]
    [cats.builtin]
+   [clj-parser.compat :as compat]
    [clj-parser.input :as input]
    [clj-parser.core :refer [parse success string regexp eof many optional run-parser success?
                             many1 token sep-by]])
-  (:refer-clojure :exclude [read-string])
   )
 
 (deftest test-primitives
@@ -43,7 +41,7 @@
   (testing "primitive: optional"
     (is (= "a" (parse (optional (string "a")) "a")))
     (is (= "a" (parse (optional (string "a")) "a has more input")))
-    (let [result (run-parser (optional (string "a")) (input/->StringInput ""))]
+    (let [result (run-parser (optional (string "a")) "")]
       (is (success? result))
       (is (= nil (get result :obj)))))
   )
@@ -70,7 +68,7 @@
 
 (deftest test-cats
   (testing "fmap"
-    (is (= 123 (parse (m/fmap #(read-string %) (string "123")) "123 and more"))))
+    (is (= 123 (parse (m/fmap #(compat/read-string %) (string "123")) "123 and more"))))
   (testing "ap"
     (is (= "asdfjkl" (parse (m/ap str (string "asdf") (string "jkl")) "asdfjkl"))))
   (testing "bind"

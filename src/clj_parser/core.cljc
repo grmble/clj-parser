@@ -97,21 +97,22 @@
 
 (defn
   ^:private
-  run-parser-pos [parser input state]
+  run-parser-with-state [parser input state]
   ((p/-extract parser) input state))
 
 
 (defn run-parser
   "Run a parser and obtain a success of failure"
   [parser input]
-  (run-parser-pos parser input (->State 0 false)))
+  (let [input (input/make-input input)]
+    (run-parser-with-state parser input (->State 0 false))))
 
 
 (defn parse
   "Run the parser and return the content of the success, or nil on error"
   [parser ^String input]
   (handle-result
-    (run-parser parser (input/->StringInput input))
+    (run-parser parser input)
     #(get % :obj)
     (fn [_] nil)))
 
@@ -168,7 +169,7 @@
     (fn [input state]
       (loop [state state
              acc []]
-        (let [result (run-parser-pos parser input state)]
+        (let [result (run-parser-with-state parser input state)]
           (if (success? result)
             (recur (:state result) (conj acc (:obj result)))
             (->Success state acc)))))))
@@ -179,7 +180,7 @@
   (->Parser
     (fn [input state]
       (handle-result
-        (run-parser-pos parser input state)
+        (run-parser-with-state parser input state)
         identity
         (fn [_] (->Success state nil))))))
 
@@ -215,7 +216,6 @@
 
 
 
-
 (def ^{:no-doc true}
   context
   (reify
@@ -226,7 +226,7 @@
       (->Parser
         (fn [input state]
           (handle-success
-            (run-parser-pos parser input state)
+            (run-parser-with-state parser input state)
             (fn [res] (update res :obj func))))))
 
     p/Applicative
@@ -237,12 +237,12 @@
       (->Parser
         (fn [input state]
           (handle-success
-            (run-parser-pos af input state)
+            (run-parser-with-state af input state)
             (fn [res]
               (let [func (:obj res)
                     state2 (:state res)]
                 (handle-success
-                  (run-parser-pos av input state2)
+                  (run-parser-with-state av input state2)
                   (fn [res2]
                     (update res2 :obj func)))))))))
 
@@ -255,11 +255,11 @@
       (->Parser
         (fn [input state]
           (handle-success
-            (run-parser-pos parser input state)
+            (run-parser-with-state parser input state)
             (fn [res]
               (let [state2 (:state res)
                     parser2 (func (:obj res))]
-                (run-parser-pos parser2 input state2)))))))
+                (run-parser-with-state parser2 input state2)))))))
 
     p/MonadPlus
     (-mplus [_ parser1 parser2]
@@ -267,11 +267,11 @@
         (fn [input state]
           (let [state (assoc state :committed false)]
             (handle-result
-             (run-parser-pos parser1 input state)
+             (run-parser-with-state parser1 input state)
              identity
              (fn [res]
                (if (:committed (:state res))
                  res
-                 (run-parser-pos parser2 input state))))))))
+                 (run-parser-with-state parser2 input state))))))))
     ))
 
