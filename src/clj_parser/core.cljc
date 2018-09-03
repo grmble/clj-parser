@@ -38,12 +38,17 @@
 ;;;
 ;;;
 
-(defrecord State [^long pos committed])
+(defprotocol IState
+  "A state can be advanced"
+  (advance [this delta]
+    "Advance the parsing state by delta character positions"))
 
-(defn advance [state dpos]
-  (-> state
-      (update :pos #(+ dpos %))
-      (assoc :committed true)))
+(declare ->State)
+
+(defrecord State [^long pos committed]
+  IState
+  (advance [_ delta]
+    (->State (+ pos delta) true)))
 
 ;;;
 ;;;
@@ -67,14 +72,14 @@
   Result
   (success? [_] nil))
 
-(defn ^:private handle-result
+(defn handle-result
   "Handle a result - for success, call the success function, else the failure function"
   [res succ-fn fail-fn]
   (if (success? res)
     (succ-fn res)
     (fail-fn res)))
 
-(defn ^:private handle-success
+(defn handle-success
   "Handle a success by calling the success function.  Returns the failure on failure."
   [res succ-fn]
   (if (success? res)
@@ -157,6 +162,12 @@
     (fn [_ state]
       (->Success state obj))))
 
+(defn fail
+  "A failed, committed parse"
+  [msg]
+  (->Parser
+   (fn [_ state]
+     (failure (assoc state :committed true) msg))))
 
 (defn many
   "Parse as many repetitions of parser as possible.

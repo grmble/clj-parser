@@ -11,6 +11,7 @@
    [clojure.repl :refer :all]
    [clojure.test :refer :all]
    [clojure.tools.namespace.repl :refer [refresh]]
+   [cats.core :as m]
    [clj-parser.core :as p]
    [clj-parser.input :as i]
    [clj-parser.json :as json]
@@ -24,3 +25,18 @@
    'clj-parser.json-tests
    ))
 
+(def xl-input (slurp "xl.json"))
+
+(defn xl-parse []
+  (time (p/run-parser (json/json) xl-input)))
+
+(defn xxx [s]
+  (p/run-parser
+   (m/mlet [x (p/token (p/string "x"))
+            _ (p/token (p/string ":"))
+            y (p/token (p/string "y"))]
+           (m/return (str x y)))
+   s))
+
+(defn yyy [s]
+  (p/run-parser (json/key-and-value) s))

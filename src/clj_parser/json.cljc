@@ -5,9 +5,19 @@
   (:refer-clojure :exclude [array])
   )
 
+#?(:clj (set! *warn-on-reflection* true))
+
 (defn null
   []
   (m/fmap (constantly nil) (p/token (p/string "null"))))
+
+(defn jtrue
+  []
+  (m/fmap (constantly true) (p/token (p/string "true"))))
+
+(defn jfalse
+  []
+  (m/fmap (constantly false) (p/token (p/string "false"))))
 
 (defn number
   "Parse a JSON number
@@ -19,14 +29,14 @@
 
 
 #?(:clj
-   (defn- handle-string-body [s]
+   (defn- handle-string-body [^String s]
      (let [sb (StringBuilder.)
-           end (dec (.length s))]
-       (loop [idx 1]
+           end (dec (count s))]
+       (loop [idx 0]
          (if (< idx end)
-           (let [c1 (.charAt s idx)]
+           (let [c1 (.charAt s (int idx))]
              (if (= \\ c1)
-               (let [c2 (.charAt s (inc idx))]
+               (let [c2 (.charAt s (int (inc idx)))]
                  (if (= \u c2)
                    (let [digits (.substring s (+ idx 2) (+ idx 6))]
                      (.append sb (char (Integer/parseInt digits 16)))
@@ -51,7 +61,7 @@
    (defn- handle-string-body [s]
      (let [sb #js[]
            end (dec (count s))]
-       (loop [idx 1]
+       (loop [idx 0]
          (if (< idx end)
            (let [c1 (get s idx)]
              (if (= \\ c1)
@@ -81,8 +91,10 @@
 (defn string
   "Parse a JSON String"
   []
-  (m/fmap handle-string-body
-          (p/token (p/regexp #"\"(?:[^\\\"]*|\\[\\\"/bfnrt]|\\u[0-9a-fA-F]{4})*\""))))
+  (m/mlet [_ (p/string "\"")
+           s (m/fmap handle-string-body
+                     (p/token (p/regexp #"(?:[^\\\"]*|\\[\\\"/bfnrt]|\\u[0-9a-fA-F]{4})*\"")))]
+          (m/return s)))
 
 (declare inner-json)
 
@@ -94,7 +106,7 @@
            _ (p/token (p/string "]"))]
           (m/return arr)))
 
-(defn- key-and-value []
+(defn key-and-value []
   (m/mlet [k (p/token (string))
            _ (p/token (p/string ":"))
            v (inner-json)]
@@ -108,8 +120,7 @@
            _ (p/token (p/string "}"))]
           (m/return (into {} kvs))))
 
-
-(defn- inner-json
+(defn inner-json
   []
   (m/mplus
    (string)
@@ -117,6 +128,9 @@
    (array)
    (object)
    (null)
+   (jtrue)
+   (jfalse)
+   (p/fail "Must be one of: {, [, \", a number, true, false or null")
    ))
 
 (defn json
