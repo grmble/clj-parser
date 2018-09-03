@@ -12,7 +12,18 @@
 
 (declare context)
 
-(defrecord Parser [parser-fn]
+(defprotocol IParser
+  "A parser has a parse function Input -> State -> Result
+
+  A Result is either Success or Failure, and both of these has a State"
+  (run-parser-with-state [this input state]
+    "Run the parse function"))
+
+(deftype Parser [parser-fn]
+
+  IParser
+  (run-parser-with-state [_ input state]
+    (parser-fn input state))
 
   p/Contextual
   (-get-context [_] context)
@@ -131,12 +142,6 @@
 ;;; Parser Primitives
 ;;;
 ;;;
-
-(defn
-  ^:private
-  run-parser-with-state [parser input state]
-  ((p/-extract parser) input state))
-
 
 (defn run-parser
   "Run a parser and obtain a success of failure"
