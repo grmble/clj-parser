@@ -56,16 +56,16 @@
   "Matching regular expressions against a string input"
   (let [inp (i/->StringInput "abc")]
     (testing "succesful matches"
-      (is (= ["a"] (i/re-prefix-at? inp 0 #"a")))
-      (is (= ["b"] (i/re-prefix-at? inp 1 #"b")))
-      (is (= ["c"] (i/re-prefix-at? inp 2 #"c"))))
+      (is (= "a" (i/re-prefix-at? inp 0 #"a")))
+      (is (= "b" (i/re-prefix-at? inp 1 #"b")))
+      (is (= "c" (i/re-prefix-at? inp 2 #"c"))))
     (testing "does not match"
       (is (nil? (i/re-prefix-at? inp 0 #"b")))
       (is (nil? (i/re-prefix-at? inp 1 #"a"))))
     (testing "matching past last character"
       (is (nil? (i/re-prefix-at? inp 3 #"x"))))
     (testing "matching empty regex"
-      (is (= [""] (i/re-prefix-at? inp 0 #"")))
-      (is (= [""] (i/re-prefix-at? inp 3 #"")))
+      (is (= "" (i/re-prefix-at? inp 0 #"")))
+      (is (= "" (i/re-prefix-at? inp 3 #"")))
       )
     ))

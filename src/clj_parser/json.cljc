@@ -7,24 +7,21 @@
 
 #?(:clj (set! *warn-on-reflection* true))
 
-(defn null
-  []
+(def null
   (m/fmap (constantly nil) (p/token (p/string "null"))))
 
-(defn jtrue
-  []
+(def jtrue
   (m/fmap (constantly true) (p/token (p/string "true"))))
 
-(defn jfalse
-  []
+(def jfalse
   (m/fmap (constantly false) (p/token (p/string "false"))))
 
-(defn number
-  "Parse a JSON number
+(def ^{:doc
+       "Parse a JSON number
 
   https://stackoverflow.com/questions/13340717/json-numbers-regular-expression
-  "
-  []
+  "}
+  number
   (m/fmap #(c/read-string %) (p/token (p/regexp #"-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?"))))
 
 
@@ -87,56 +84,59 @@
            (.join sb "")))))
    )
 
-
-(defn string
-  "Parse a JSON String"
-  []
-  (m/mlet [_ (p/string "\"")
-           s (m/fmap handle-string-body
-                     (p/token (p/regexp #"(?:[^\\\"]*|\\[\\\"/bfnrt]|\\u[0-9a-fA-F]{4})*\"")))]
-          (m/return s)))
-
 (declare inner-json)
 
-(defn array
-  "Parse a JSON Array"
-  []
-  (m/mlet [_ (p/token (p/string "["))
-           arr (p/sep-by (inner-json) ",")
-           _ (p/token (p/string "]"))]
+(def ^:private double-quote (p/character \"))
+(def ^:private open-curly (p/token (p/character \{)))
+(def ^:private close-curly (p/token (p/character \})))
+(def ^:private open-bracket (p/token (p/character \[)))
+(def ^:private close-bracket (p/token (p/character \])))
+(def ^:private colon (p/token (p/character \:)))
+(def ^:private comma (p/token (p/character \,)))
+(def ^:private inner-string
+  (m/fmap handle-string-body
+          (p/token (p/regexp #"(?:[^\\\"]*|\\[\\\"/bfnrt]|\\u[0-9a-fA-F]{4})*\""))))
+
+(def string
+  (m/mlet [_ double-quote
+           s inner-string]
+          (m/return s)))
+
+
+(def array
+  (m/mlet [_ open-bracket
+           arr (p/sep-by inner-json comma)
+           _ close-bracket]
           (m/return arr)))
 
-(defn key-and-value []
-  (m/mlet [k (p/token (string))
-           _ (p/token (p/string ":"))
-           v (inner-json)]
+(def ^:private
+  key-and-value
+  (m/mlet [k string
+           _ colon
+           v inner-json]
     (m/return [k v])))
 
-(defn object
-  "Parse a JSON object"
-  []
-  (m/mlet [_ (p/token (p/string "{"))
-           kvs (p/sep-by (key-and-value) ",")
-           _ (p/token (p/string "}"))]
+(def object
+  (m/mlet [_ open-curly
+           kvs (p/sep-by key-and-value comma)
+           _ close-curly]
           (m/return (into {} kvs))))
 
-(defn inner-json
-  []
+(def ^:private
+  inner-json
   (m/mplus
-   (string)
-   (number)
-   (array)
-   (object)
-   (null)
-   (jtrue)
-   (jfalse)
+   string
+   number
+   array
+   object
+   null
+   jtrue
+   jfalse
    (p/fail "Must be one of: {, [, \", a number, true, false or null")
    ))
 
-(defn json
-  "Parse JSON"
-  []
-  (m/mlet [_ (p/regexp #"\s*")
-           x (inner-json)
-           _ (p/eof)]
+(def json
+  (m/mlet [_ p/whitespace
+           x inner-json
+           _ p/eof]
           (m/return x)))

@@ -11,7 +11,6 @@
   (let [matcher (.matcher prefix str)]
     (.region matcher pos (count str))
     (when (.lookingAt matcher)
-      (for [i (range (inc (.groupCount matcher)))]
-        (.group matcher (int i))))))
+      (.group matcher))))
 
 (def read-string edn/read-string)

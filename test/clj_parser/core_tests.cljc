@@ -30,8 +30,8 @@
     (is (= "abc" (parse (regexp #"abc") "abc")))
     (is (= "abc" (parse (regexp #"abc") "abc has more input"))))
   (testing "primitive: eof"
-    (is (= :eof (parse (eof) "")))
-    (is (= nil (parse (eof) "has more input"))))
+    (is (= :eof (parse eof "")))
+    (is (= nil (parse eof "has more input"))))
   (testing "primitive: many"
     (is (= ["a" "a" "a"] (parse (many (string "a")) "aaa")))
     (is (= ["a" "a" "a"] (parse (many (string "a")) "aaa has more input")))
@@ -57,12 +57,13 @@
     (is (= "a" (parse (token (string "a")) "a")))
     (is (= "a" (parse (token (string "a")) "a   "))))
   (testing "combinator: sep-by"
-    (is (= ["a", "a", "a"] (parse (sep-by (string "a") ",") "a, a, a")))
-    (is (= ["a", "a", "a"] (parse (sep-by (string "a") ",") "a,a,a")))
-    (is (= ["a", "a", "a"] (parse (sep-by (string "a") ",") "a  ,  a   ,  a   ")))
-    (is (= ["a", "a"] (parse (sep-by (string "a") ",") "a, a")))
-    (is (= ["a"] (parse (sep-by (string "a") ",") "a")))
-    (is (= [] (parse (sep-by (string "a") ",") "")))
+    (is (= ["a", "a", "a"] (parse (sep-by (token (string "a")) (token (string ","))) "a, a, a")))
+    (is (= ["a", "a", "a"] (parse (sep-by (token (string "a")) (token (string ","))) "a,a,a")))
+    (is (= ["a", "a", "a"] (parse (sep-by (token (string "a")) (token (string ",")))
+                                  "a  ,  a   ,  a   ")))
+    (is (= ["a", "a"] (parse (sep-by (token (string "a")) (token (string ","))) "a, a")))
+    (is (= ["a"] (parse (sep-by (token (string "a")) (token (string ","))) "a")))
+    (is (= [] (parse (sep-by (token (string "a")) (token (string ","))) "")))
     )
   )
 

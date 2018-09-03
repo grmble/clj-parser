@@ -40,15 +40,24 @@
 
 (defprotocol IState
   "A state can be advanced"
+  (committed? [this]
+    "Is the parse commited?")
+  (get-position [this]
+    "Get the current position")
   (advance [this delta]
-    "Advance the parsing state by delta character positions"))
+    "Advance the parsing state by delta character positions. Commits the parse"))
 
 (declare ->State)
 
-(defrecord State [^long pos committed]
+(deftype State [^long pos committed]
   IState
+  (committed? [_] committed)
+  (get-position [_] pos)
   (advance [_ delta]
-    (->State (+ pos delta) true)))
+    (->State (+ pos delta) true))
+  Object
+  (toString [_] (str "<State :pos " pos " :committed " committed ">"))
+  )
 
 ;;;
 ;;;
@@ -60,26 +69,49 @@
   "The result of a parse, either Success or Failure"
 
   (success? [res] "Is it a success?")
+  (get-state [res] "Get the parser state")
+  (get-result [res] "The result on success, nil otherwise")
+  (get-error [res] "The error stack on failure, nil otherwise")
   )
 
-(defrecord Success [state obj]
+(deftype Success [state obj]
   Result
-  (success? [res] res))
+  (success? [res] res)
+  (get-state [_] state)
+  (get-result [_] obj)
+  (get-error [_] nil)
+  IState
+  (committed? [_] (committed? state))
+  (get-position [_] (get-position state))
+  (advance [_ x] (advance state x))
+  Object
+  (toString [_] (str "<Success :state " state " :result " obj ">"))
+  )
 
 (defrecord StackEntry [^String msg ^long pos])
 
-(defrecord Failure [state stack]
+(deftype Failure [state stack]
   Result
-  (success? [_] nil))
+  (success? [_] nil)
+  (get-state [_] state)
+  (get-result [_] nil)
+  (get-error [_] stack)
+  IState
+  (committed? [_] (committed? state))
+  (get-position [_] (get-position state))
+  (advance [_ x] (advance state x))
+  Object
+  (toString [_] (str "<Failure :state " state " :stack " stack ">"))
+  )
 
-(defn handle-result
+(defn- handle-result
   "Handle a result - for success, call the success function, else the failure function"
   [res succ-fn fail-fn]
   (if (success? res)
     (succ-fn res)
     (fail-fn res)))
 
-(defn handle-success
+(defn- handle-success
   "Handle a success by calling the success function.  Returns the failure on failure."
   [res succ-fn]
   (if (success? res)
@@ -89,8 +121,8 @@
 (alter-meta! #'->Success assoc :private true)
 (alter-meta! #'->Failure assoc :private true)
 
-(defn failure [state msg]
-  (->Failure state (list (->StackEntry msg (:pos state)))))
+(defn- failure [state msg]
+  (->Failure state (list (->StackEntry msg (get-position state)))))
 
 
 
@@ -118,8 +150,20 @@
   [parser ^String input]
   (handle-result
     (run-parser parser input)
-    #(get % :obj)
-    (fn [_] nil)))
+    get-result
+    (constantly nil)))
+
+(defn character
+  "Parses the character.
+
+  Returns the character on success, nil otherwise."
+  [^Character ch]
+  (->Parser
+   (fn [input state]
+     (if (input/char-prefix-at? input (get-position state) ch)
+       (->Success (advance state 1) ch)
+       (failure state (str "Character did not match: " ch))))))
+
 
 (defn string
   "Parses the string argument
@@ -129,7 +173,7 @@
   [^String s]
   (->Parser
     (fn [input state]
-      (if (input/string-prefix-at? input (:pos state) s)
+      (if (input/string-prefix-at? input (get-position state) s)
         (->Success (advance state (count s)) s)
         (failure state (str "String did not match: " s))))))
 
@@ -141,16 +185,15 @@
   [re]
   (->Parser
     (fn [input state]
-      (if-let [groups (input/re-prefix-at? input (:pos state) re)]
-        (->Success (advance state (count (first groups))) (first groups))
+      (if-let [result (input/re-prefix-at? input (get-position state) re)]
+        (->Success (advance state (count result)) result)
         (failure state (str "Regexp did not match: " (str re)))))))
 
-(defn eof
-  "Matches the end of input"
-  []
+(def ^{:doc "Matches the end of input"}
+  eof
   (->Parser
     (fn [input state]
-      (if (input/exhausted? input (:pos state))
+      (if (input/exhausted? input (get-position state))
         (->Success state :eof)
         (failure state "Input not exhausted")))))
 
@@ -163,11 +206,11 @@
       (->Success state obj))))
 
 (defn fail
-  "A failed, committed parse"
+  "A failed parse"
   [msg]
   (->Parser
    (fn [_ state]
-     (failure (assoc state :committed true) msg))))
+     (failure state msg))))
 
 (defn many
   "Parse as many repetitions of parser as possible.
@@ -182,18 +225,23 @@
              acc []]
         (let [result (run-parser-with-state parser input state)]
           (if (success? result)
-            (recur (:state result) (conj acc (:obj result)))
+            (recur (get-state result) (conj acc (get-result result)))
             (->Success state acc)))))))
 
 (defn optional
-  "Optional parser.  Returns result or nil success"
-  [parser]
-  (->Parser
+  "Optional parser.  Returns result or empty-result (default: nil) on success"
+  ([parser empty-result]
+   (->Parser
     (fn [input state]
       (handle-result
-        (run-parser-with-state parser input state)
-        identity
-        (fn [_] (->Success state nil))))))
+       (run-parser-with-state parser input state)
+       identity
+       (fn [res]
+         (if (committed? res)
+           res
+           (->Success state nil)))))))
+  ([parser]
+   (optional parser nil)))
 
 ;;;
 ;;;
@@ -206,23 +254,28 @@
            xs (many parser)]
           (m/return (into [x1] xs))))
 
+(def ^{:doc "A parser for whitespace"}
+  whitespace
+  (regexp #"\s*"))
+
+
 (defn token [parser]
   (m/mlet [tok parser
-           ws  (regexp #"\s*")]
+           ws  whitespace]
           (m/return tok)))
 
-(defn ^:private sep-then [str parser]
-  (m/mlet [_ (token (string str))
-           tok (token parser)]
-          (m/return tok)))
+(defn ^:private sep-then [sep parser]
+  (m/mlet [_ sep
+           x parser]
+          (m/return x)))
 
-(defn sep-by1 [parser str]
-  (m/mlet [x1 (token parser)
-           xs (many (sep-then str parser))]
+(defn sep-by1 [parser sep]
+  (m/mlet [x1 parser
+           xs (many (sep-then sep parser))]
           (m/return (into [x1] xs))))
 
-(defn sep-by [parser str]
-  (m/mplus (sep-by1 parser str)
+(defn sep-by [parser sep]
+  (m/mplus (sep-by1 parser sep)
            (success [])))
 
 
@@ -238,7 +291,7 @@
         (fn [input state]
           (handle-success
             (run-parser-with-state parser input state)
-            (fn [res] (update res :obj func))))))
+            (fn [res] (->Success (get-state res) (func (get-result res))))))))
 
     p/Applicative
     (-pure [_ obj]
@@ -250,12 +303,12 @@
           (handle-success
             (run-parser-with-state af input state)
             (fn [res]
-              (let [func (:obj res)
-                    state2 (:state res)]
+              (let [func (get-result res)
+                    state2 (get-state res)]
                 (handle-success
                   (run-parser-with-state av input state2)
                   (fn [res2]
-                    (update res2 :obj func)))))))))
+                    (->Success (get-state res2) (func (get-result res2)))))))))))
 
 
     p/Monad
@@ -268,20 +321,20 @@
           (handle-success
             (run-parser-with-state parser input state)
             (fn [res]
-              (let [state2 (:state res)
-                    parser2 (func (:obj res))]
+              (let [state2 (get-state res)
+                    parser2 (func (get-result res))]
                 (run-parser-with-state parser2 input state2)))))))
 
     p/MonadPlus
     (-mplus [_ parser1 parser2]
       (->Parser
         (fn [input state]
-          (let [state (assoc state :committed false)]
+          (let [state (->State (get-position state) false)]
             (handle-result
              (run-parser-with-state parser1 input state)
              identity
              (fn [res]
-               (if (:committed (:state res))
+               (if (committed? res)
                  res
                  (run-parser-with-state parser2 input state))))))))
     ))

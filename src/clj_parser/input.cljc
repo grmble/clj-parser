@@ -20,10 +20,11 @@
   This means
   * synchronous
   * string"
+  (input-length [this] "Length of the input")
   (re-prefix-at? [this pos prefix]
     "Is the regular expression a prefix starting at pos?"))
 
-(defrecord StringInput [^String input]
+(deftype StringInput [^String input]
   Input
   (exhausted? [_ pos]
     (<= (count input) pos))
@@ -36,6 +37,7 @@
     (when (.startsWith input prefix pos)
       prefix))
   RegexInput
+  (input-length [_] (count input))
   (re-prefix-at? [_ pos prefix]
     (compat/str-regex-at? input pos prefix)))
 

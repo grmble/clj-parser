@@ -25,6 +25,7 @@
               :dependencies [[org.clojure/clojurescript "1.10.339"]
                              [com.bhauman/figwheel-main "0.1.8"]
                              [devcards "0.2.5"]
+                             [cheshire "5.8.0"] ; for benchmark comparisons
                              ]
 
               ;; so cljs compilation results are picked up

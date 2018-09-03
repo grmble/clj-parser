@@ -8,6 +8,6 @@
     ;; if prefix2 is called prefix as well, this fails
     ;; huh?
     (set! prefix2.lastIndex pos)
-    (seq (.exec prefix2 str))))
+    (first (.exec prefix2 str))))
 
 (def read-string r/read-string)
